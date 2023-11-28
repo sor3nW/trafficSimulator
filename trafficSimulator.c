@@ -14,8 +14,8 @@ void printNames( )
 {
     /* TODO : Fill in you and your partner's names (or N/A if you worked individually) */
     printf("\nThis solution was completed by:\n");
-    printf("<student name #1>\n");
-    printf("<student name #2 (if no partner write \"N/A\")>\n\n");
+    printf("Soren Watterson\n");
+    printf("N/A\n\n");
 }
 
 /* createTrafficData
@@ -28,7 +28,8 @@ TrafficData* createTrafficData( char* filename )
 {
     /* open the file */
     FILE *pFile = fopen( filename, "r" );
-
+    int numIntersections;
+    fscanf( pFile, "%d", &numIntersections );
     /* TODO: read in all the data in pFile */
     /* HINT: use fscanf( pFile, "%d", &<your int variable here> ) to read an int from pFile */
 

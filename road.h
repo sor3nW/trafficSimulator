@@ -14,8 +14,13 @@ typedef struct RoadData
     int length;
     /* information used to record/update whether the light at the end of this road is green or red */
     bool green;
+    int GreenOn;
+    int GreenOff;
+    int CycleReset;
+    int TimeStep;
     /* intersections this road starts from and moves to */
     int start;
+    int end;
     /* Each road should have an array to track cars currently driving on them.  The type of this array can be either `Car**` 
      * (array of car pointers) or `Car*` (array of cars) but the former may be easier to use since locations on the road can 
      * be set to `NULL` if no car is present.
@@ -35,7 +40,7 @@ void freeRoad(RoadData* road);
 void moveCarsForward(RoadData* road);
 void moveCarToRoad(Car* car, RoadData* road);
 void addCarToRoad(Car* car, RoadData* road);
-void updateLight(RoadData* road, int cycle);
+void updateLight(RoadData* road);
 void printDestinations(RoadData* road);
 
 #endif

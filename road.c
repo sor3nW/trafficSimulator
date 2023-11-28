@@ -30,14 +30,19 @@ void printCar(RoadData* road){
         }
     }
 }
-RoadData* createRoad(int length, int from, int to, int greenStartTime, int greenEndTime, int lightCycleLength){
+RoadData* createRoad(int length, int from, int to, int GreenOn, int GreenOff, int CycleReset){
     RoadData* road = (RoadData*)malloc(sizeof(RoadData));
     road->length = length;
     road->green = false;
     road->start = from;
+    road->end = to;
+    road->GreenOn = GreenOn;
+    road->GreenOff = GreenOff;
+    road->CycleReset = CycleReset;
     road->cars = (Car**)malloc(sizeof(Car*)*length);
     road->waitingCars = createQueue();
     return road;
+    
 }
 void freeRoad(RoadData* road){
     free(road->cars);
@@ -70,7 +75,20 @@ void moveCarToRoad(Car* car, RoadData* road){
 void addCarToRoad(Car* car, RoadData* road){
     enqueue(road->waitingCars, car);
 }
-void updateLight(RoadData* road, int cycle);
+void updateLight(RoadData* road){
+    
+    if(road->GreenOn == road->TimeStep ){
+        road->green = true;
+    }
+    if(road->GreenOff == road->TimeStep ){
+        road->green = false;
+    }
+    if (road->CycleReset == road->TimeStep){
+        road->TimeStep = 0;
+    }
+    road->TimeStep++;
+}
+
 void printDestinations(RoadData* road){
     printf("Cars on the road from %d to %d: \n", road->start, road->length);
     int i;
