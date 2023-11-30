@@ -28,11 +28,80 @@ TrafficData* createTrafficData( char* filename )
 {
     /* open the file */
     FILE *pFile = fopen( filename, "r" );
+    if ( pFile == NULL )
+    {
+        printf( "Error opening file\n" );
+        return NULL;
+    }
     int numIntersections;
-    fscanf( pFile, "%d", &numIntersections );
+    int numRoads;
+
+    struct RoadData* roadArray = malloc(numRoads * sizeof(RoadData*));
+
+    TrafficData* trafficData = malloc(sizeof(TrafficData));
+    trafficData->roadNetwork = createGraph(numIntersections);
+    Graph* g = trafficData->roadNetwork;
+    trafficData->numCars = 0;
+    trafficData->maxLightCycleTime = 0;
+
+
+    int incomingRoads, from, length, GreenOn, GreenOff, CycleReset;
+    int i, j = 0;
+    for (i = 0; i < numIntersections ; i++){
+        fscanf( pFile, "%d", &incomingRoads );
+        for (j = 0; j < incomingRoads; j++){
+
+            fscanf( pFile, "%d %d %d %d %d", &from, &length, &GreenOn, &GreenOff, &CycleReset );
+            // RoadData* createRoad(int length, int from, int to, int GreenOn, int GreenOff, int CycleReset)
+            RoadData* road = createRoad(length, from, i, GreenOn, GreenOff, CycleReset);
+            roadArray[i] = *road;
+            // add roads to graph here
+            setEdge(g, from, i, length);
+            setEdgeData(g, from, i, road);
+        }
+    }
+    trafficData->roads = roadArray;
+    trafficData->eventQueue = createPQ();
+
+    int numCarCommands;
+    int to, carTimeStep, numCars, destination;
+    fscanf( pFile, "%d", &numCarCommands );
+    i, j = 0;
+    for (i = 0; i < numCarCommands; i++){
+        fscanf( pFile, "%d %d %d %d", &from, &to, &carTimeStep, &numCars );
+        for (j = 0; j < numCars; j++){
+            fscanf( pFile, "%d", &destination );
+            // add this destination somewhere
+        }
+    }
+
+    int numPrintCommands;
+    i, j = 0;
+    for (i = 0; i < numPrintCommands; i++){
+        fscanf( pFile, "%d", &carTimeStep );
+        // print the cars at this time step
+    }
+
+    
+
+
+
+    // void setEdge( Graph* g, graphType p1, graphType p2, int value );
+    i, j = 0;
+    for (i = 0; i < numIntersections; i++){
+        for (j = 0; j < numIntersections; j++){
+            setEdge(g, i, j, 0);
+        }
+    }
+
+    
+
+    
+
+    
+    
     /* TODO: read in all the data in pFile */
     /* HINT: use fscanf( pFile, "%d", &<your int variable here> ) to read an int from pFile */
-
     /* HINTs:
      * Each road can be stored in a `RoadData` struct (see `road.h`).
      *
@@ -56,7 +125,7 @@ TrafficData* createTrafficData( char* filename )
      *
      * Each car is stored in a Car struct (see `car.h`).
      */
-
+    
 
     /* close file */
     fclose( pFile );
@@ -137,6 +206,7 @@ void trafficSimulator( TrafficData* pTrafficData )
 void freeTrafficData( TrafficData* pTrafficData )
 {
     /* TODO: complete this function */
+
 }
 
 int max( int a, int b )

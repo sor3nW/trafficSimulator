@@ -34,7 +34,7 @@ typedef struct RoadData
 
 }  RoadData;
 
-void printCar();
+void printCar(RoadData* road);
 RoadData* createRoad(int length, int from, int to, int greenStartTime, int greenEndTime, int lightCycleLength);
 void freeRoad(RoadData* road);
 void moveCarsForward(RoadData* road);
