@@ -35,70 +35,95 @@ TrafficData* createTrafficData( char* filename )
     }
     int numIntersections;
     int numRoads;
+    fscanf( pFile, "%d %d", &numIntersections, &numRoads );
 
-    struct RoadData* roadArray = malloc(numRoads * sizeof(RoadData*));
-
-    TrafficData* trafficData = malloc(sizeof(TrafficData));
+    TrafficData* trafficData = (TrafficData*)malloc(sizeof(TrafficData));
     trafficData->roadNetwork = createGraph(numIntersections);
-    Graph* g = trafficData->roadNetwork;
-    trafficData->numCars = 0;
-    trafficData->maxLightCycleTime = 0;
+    
+    trafficData->numCars = 0; 
+    trafficData->numRoads = numRoads;
 
+    int* maxLightcycleTime = (int*)malloc(sizeof(int));
+    *maxLightcycleTime = -1;
+    trafficData->maxLightCycleTime = *maxLightcycleTime;
 
+    trafficData->eventQueue = createPQ();
+    trafficData->roads = (RoadData**)malloc(sizeof(RoadData*) * numRoads);
+    
     int incomingRoads, from, length, GreenOn, GreenOff, CycleReset;
-    int i, j = 0;
+    int i, j;
+    int tempRoadCount = 0;
+    printf("Add the roads:\n");
     for (i = 0; i < numIntersections ; i++){
-        fscanf( pFile, "%d", &incomingRoads );
-        for (j = 0; j < incomingRoads; j++){
 
+        fscanf( pFile, "%d", &incomingRoads );
+
+        for (j = 0; j < incomingRoads; j++){
             fscanf( pFile, "%d %d %d %d %d", &from, &length, &GreenOn, &GreenOff, &CycleReset );
+
             // RoadData* createRoad(int length, int from, int to, int GreenOn, int GreenOff, int CycleReset)
-            RoadData* road = createRoad(length, from, i, GreenOn, GreenOff, CycleReset);
-            roadArray[i] = *road;
+            RoadData* road = createRoad(length, from, i, GreenOn, GreenOff, CycleReset, &trafficData->maxLightCycleTime);
+            trafficData->roads[tempRoadCount] = road;
+            
+            tempRoadCount++;
+
+            
             // add roads to graph here
-            setEdge(g, from, i, length);
-            setEdgeData(g, from, i, road);
+            setEdge(trafficData->roadNetwork, from, i, length);
+            setEdgeData(trafficData->roadNetwork, from, i, road);
+
+            printRoadData(length, from, i, GreenOn, GreenOff, CycleReset);
+
+
         }
     }
-    trafficData->roads = roadArray;
-    trafficData->eventQueue = createPQ();
 
     int numCarCommands;
     int to, carTimeStep, numCars, destination;
+
     fscanf( pFile, "%d", &numCarCommands );
-    i, j = 0;
+    printf("Add the cars events:\n");
     for (i = 0; i < numCarCommands; i++){
-        fscanf( pFile, "%d %d %d %d", &from, &to, &carTimeStep, &numCars );
+        fscanf( pFile, "%d %d %d ", &from, &to, &carTimeStep );
+        fscanf( pFile, "%d", &numCars);
+        RoadData* temp = getEdgeData(trafficData->roadNetwork, from, to);
+        Event* addCar = createAddCarEvent(carTimeStep, temp);//trafficData->roads[from]
+        printf("Created Event for time step %d on road from %d to %d\n", carTimeStep, from, to);
+        printf("Destinations of added cars:");
+        
         for (j = 0; j < numCars; j++){
             fscanf( pFile, "%d", &destination );
-            // add this destination somewhere
+            Car* car = createCar(carTimeStep, from, to, destination);
+            trafficData->numCars++;
+            
+            enqueue(addCar->pCarQueue, car);
+
+            printf(" %d", destination);
+            if (j < numCars - 1){
+                printf(", ");
+            }
         }
+        printf("\n\n");
+        enqueueByPriority(trafficData->eventQueue, addCar, carTimeStep);
     }
 
     int numPrintCommands;
-    i, j = 0;
+    int printCarTimeStep = 0;
+    fscanf( pFile, "%d", &numPrintCommands );
+    printf("Add the roads events:\nTime steps: ");
     for (i = 0; i < numPrintCommands; i++){
-        fscanf( pFile, "%d", &carTimeStep );
+        fscanf( pFile, "%d", &printCarTimeStep );
+        printf("%d", printCarTimeStep);
+        if (i < numPrintCommands - 1){
+            printf(", ");
+        }
+        Event* printCar =  createPrintRoadsEvent(printCarTimeStep);
+
+        enqueueByPriority(trafficData->eventQueue, printCar, printCarTimeStep);
         // print the cars at this time step
     }
-
-    
-
-
-
-    // void setEdge( Graph* g, graphType p1, graphType p2, int value );
-    i, j = 0;
-    for (i = 0; i < numIntersections; i++){
-        for (j = 0; j < numIntersections; j++){
-            setEdge(g, i, j, 0);
-        }
-    }
-
-    
-
-    
-
-    
+    printf("\n");
+    fclose(pFile);
     
     /* TODO: read in all the data in pFile */
     /* HINT: use fscanf( pFile, "%d", &<your int variable here> ) to read an int from pFile */
@@ -128,9 +153,8 @@ TrafficData* createTrafficData( char* filename )
     
 
     /* close file */
-    fclose( pFile );
 
-    return NULL; /* TODO: Replace this with your TrafficData pointer */
+    return trafficData; /* TODO: Replace this with your TrafficData pointer */
 }
 
 /* Print color coding for printRoadData (may not work outside of Linux environment) */
@@ -195,6 +219,105 @@ void trafficSimulator( TrafficData* pTrafficData )
     /* Second move waiting cars onto the end of each road if possible */
 
     /* Third move cars forward on every road (only those that haven't moved yet this time step) */
+    Event* e = NULL;
+    int i = 0;
+    int cycleCount = 0, remainingCars = 0, carsCompleted = 0, totalSteps = 0, maxStep = 0;
+    int lastMoved = -1;
+    bool res1, res2, res3 = false;
+
+    while(!isEmptyPQ(pTrafficData->eventQueue) || remainingCars > 0){
+        updateLights(pTrafficData->roads, pTrafficData->numRoads);
+        while( !isEmptyPQ(pTrafficData->eventQueue) && getFrontPriority(pTrafficData->eventQueue) == cycleCount ){
+
+            e = dequeuePQ(pTrafficData->eventQueue);
+            switch (e->eventCode){
+                case ADD_CAR_EVENT:
+                    mergeQueues(e->pRoadData->waitingCars, e->pCarQueue);
+                    printf("STEP %d - ADD_CAR_EVENT - Cars enqueued on road from %d to %d\n", e->eventTimeStep, e->pRoadData->from, e->pRoadData->to);
+                    freeQueue(e->pCarQueue);
+                    break;
+                case PRINT_ROADS_EVENT:
+                    printf("\nSTEP %d - PRINT_ROADS_EVENT - Current contents of the roads:\n", e->eventTimeStep);
+                    printDestinations(pTrafficData->roads, pTrafficData->numRoads);
+                    break;
+                default:
+                    printf("it is neither addCar or printRoads\n");
+                    break;
+            }
+            free(e);
+        }
+        
+
+        for(i = 0; i < pTrafficData->numRoads; i++)
+        {
+            Car* hold = pTrafficData->roads[i]->cars[0];
+            RoadData* nextRoad = NULL;
+            int nextT = -1;
+            bool result = false;
+
+            if(pTrafficData->roads[i]->green == true && hold != NULL)
+            {
+                result = getNextOnShortestPath(pTrafficData->roadNetwork, pTrafficData->roads[i]->to, hold->destination, &nextT);
+                if(result)
+                {
+                    nextRoad = getEdgeData(pTrafficData->roadNetwork, pTrafficData->roads[i]->to, nextT); //should be... end of curr road, to
+                    if(nextRoad == NULL || nextRoad->cars[nextRoad->length - 1] == NULL) //wtf
+                    {
+                        res1 = moveCarToRoad( pTrafficData->roads[i], nextRoad, &cycleCount, &remainingCars, &maxStep, &carsCompleted, &totalSteps);
+                    }
+                }
+            }
+        }
+
+        for(i = 0; i < pTrafficData->numRoads; i++)
+        {
+            res3 = addCarToRoad(pTrafficData->roads[i], &remainingCars);
+        }
+
+        for(i = 0; i < pTrafficData->numRoads; i++)
+        {
+            res2 = moveCarsForward(pTrafficData->roads[i]);
+        }
+        
+        for(i = 0; i < pTrafficData->numRoads; i++)
+        {
+            resetCarsMoved(pTrafficData->roads[i]);
+        }
+
+        
+        
+
+        
+
+        
+        if(res1 == false && res2 == false && res3 == false){
+            lastMoved++;
+        }
+        else{
+            lastMoved = 0;
+        }
+
+        if(lastMoved == pTrafficData->maxLightCycleTime){
+            break;
+        }
+        
+        cycleCount++;
+        res1 = false;
+
+        
+        
+        
+    }
+    if(lastMoved == pTrafficData->maxLightCycleTime){
+        printf("\nSTEP %d - Gridlock has been detected.\n", cycleCount + 1);
+    }
+    else
+    {
+        printf("\nAverage number of time steps to the reach their destination is: %.2lf\n", (double)totalSteps/carsCompleted); //ONLY IF NOT GRIDLOCKD
+        printf("Maximum number of time steps to the reach their destination is: %d\n", maxStep);
+    }
+    
+    
 }
 
 /* freeTrafficData
@@ -206,7 +329,10 @@ void trafficSimulator( TrafficData* pTrafficData )
 void freeTrafficData( TrafficData* pTrafficData )
 {
     /* TODO: complete this function */
-
+    free(pTrafficData->roads);
+    freePQ(pTrafficData->eventQueue);
+    freeGraph(pTrafficData->roadNetwork);
+    free(pTrafficData);
 }
 
 int max( int a, int b )

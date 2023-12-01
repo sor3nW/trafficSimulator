@@ -40,7 +40,7 @@ int main( int argc, char *argv[] )
     {
         printf("\nRunning default test files: \n\n");
 
-        for( i=0; i<numFiles; i++ )
+        for( i=0; i<numFiles; i++ )//numFiles
         {
             if( enableTest[i]== 1 )//Only run tests with a 1 in enableTest
             {

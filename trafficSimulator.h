@@ -19,7 +19,8 @@ typedef struct TrafficData
     /* graph representing the road network */
     Graph* roadNetwork;
     /* array of the roads of the graph in the sequence they were added to the graph */
-    RoadData* roads;
+    RoadData** roads;
+    int numRoads;
     /* priority queue of events where the priority represents the time the event will occur */
     PriorityQueue* eventQueue;
     /* track the number of cars still in the simulator */
